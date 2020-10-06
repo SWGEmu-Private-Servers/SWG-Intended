@@ -112,4 +112,3 @@ class ResourceManager extends Observer implements Logger {
 		return zoneServer;
 	}
 }
-

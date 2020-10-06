@@ -1197,8 +1197,9 @@ void PlayerManagerImplementation::killPlayer(TangibleObject* attacker, CreatureO
 
 	if (ghost != nullptr) {
 		ghost->resetIncapacitationTimes();
-		if (ghost->hasTef()) {
-			ghost->schedulePvpTefRemovalTask(true, true, true);
+		// TEF FIX Should stay TEF until Clone
+		if (ghost->hasBhTef()) {
+			ghost->schedulePvpTefRemovalTask(false, true, false, false);
 		}
 	}
 
@@ -1219,6 +1220,27 @@ void PlayerManagerImplementation::killPlayer(TangibleObject* attacker, CreatureO
 			if (attackerCreature->isPlayerCreature()) {
 				if (!CombatManager::instance()->areInDuel(attackerCreature, player)) {
 					FactionManager::instance()->awardPvpFactionPoints(attackerCreature, player);
+					
+					if (player->hasBountyMissionFor(attackerCreature) || attackerCreature->hasBountyMissionFor(player)) {
+						StringBuffer bhDeathBroadcast;
+						if (attackerCreature->hasBountyMissionFor(player)) {
+							bhDeathBroadcast << "Bounty Hunter " << attackerCreature->getFirstName() <<" has killed it's mark " << player->getFirstName() << ".";
+						} else {
+							bhDeathBroadcast << attackerCreature->getFirstName() << " has killed the Bounty Hunter " << player->getFirstName() << ".";
+						}
+						player->getZoneServer()->getChatManager()->broadcastGalaxy(nullptr, bhDeathBroadcast.toString());
+
+					} else if (attacker->getFaction() == Factions::FACTIONREBEL) {
+						attacker->playEffect("clienteffect/holoemote_rebel.cef", "head");
+						StringBuffer factionDeathBroadcast;
+						factionDeathBroadcast << "A Rebel named " << attackerCreature->getFirstName() << " has murdered " << player->getFirstName() << ", an Empire Loyalist.";
+						player->getZoneServer()->getChatManager()->broadcastGalaxy(nullptr, factionDeathBroadcast.toString());
+					} else if (attacker->getFaction() == Factions::FACTIONIMPERIAL) {
+						attacker->playEffect("clienteffect/holoemote_imperial.cef", "head");
+						StringBuffer factionDeathBroadcast;
+						factionDeathBroadcast << attackerCreature->getFirstName() << ", an Empire Loyalist, has found and slaughtered the Rebel Scum named " << player->getFirstName() << ".";
+						player->getZoneServer()->getChatManager()->broadcastGalaxy(nullptr, factionDeathBroadcast.toString());
+					}
 				}
 			}
 
@@ -1494,9 +1516,14 @@ void PlayerManagerImplementation::sendPlayerToCloner(CreatureObject* player, uin
 		player->addWounds(CreatureAttribute::MIND, 100, true, false);
 		player->addShockWounds(100, true);
 	}
-
-	if (player->getFactionStatus() != FactionStatus::ONLEAVE && cbot->getFacilityType() != CloningBuildingObjectTemplate::FACTION_IMPERIAL && cbot->getFacilityType() != CloningBuildingObjectTemplate::FACTION_REBEL && !player->hasSkill("force_title_jedi_rank_03"))
-		player->setFactionStatus(FactionStatus::ONLEAVE);
+	// TEF FIX
+	// Clone as Covert
+	if (player->getFactionStatus() != FactionStatus::COVERT && cbot->getFacilityType() != CloningBuildingObjectTemplate::FACTION_IMPERIAL && cbot->getFacilityType() != CloningBuildingObjectTemplate::FACTION_REBEL && !player->hasSkill("force_title_jedi_rank_03"))
+		player->setFactionStatus(FactionStatus::COVERT);
+	// TEF FIX Should stay TEF until Clone
+	if (ghost->hasPvpTef() || ghost->hasRealGcwTef() || ghost->hasGroupTef()) {
+		ghost->schedulePvpTefRemovalTask(true, true, true, true);
+	}
 
 	SortedVector<ManagedReference<SceneObject*> > insurableItems = getInsurableItems(player, false);
 
@@ -1720,16 +1747,24 @@ void PlayerManagerImplementation::disseminateExperience(TangibleObject* destruct
 			}
 			ManagedReference<GroupObject*> group = attacker->getGroup();
 
+			// XP Split Fix
 			uint32 combatXp = 0;
+			uint32 playerTotal = 0;
 
 			Locker crossLocker(attacker, destructedObject);
+
+			for (int v = 0; v < entry->size(); ++v){
+				uint32 weapDamage = entry->elementAt(v).getValue();
+				playerTotal += weapDamage;
+			}
 
 			for (int j = 0; j < entry->size(); ++j) {
 				uint32 damage = entry->elementAt(j).getValue();
 				String xpType = entry->elementAt(j).getKey();
 				float xpAmount = baseXp;
 
-				xpAmount *= (float) damage / totalDamage;
+				//xpAmount *= (float) damage / totalDamage;
+				xpAmount *= (float) damage / playerTotal;
 
 				//Cap xp based on level
 				xpAmount = Math::min(xpAmount, calculatePlayerLevel(attacker, xpType) * 300.f);
@@ -5782,6 +5817,42 @@ void PlayerManagerImplementation::doPvpDeathRatingUpdate(CreatureObject* player,
 	FrsManager* frsManager = server->getFrsManager();
 	int frsXpAdjustment = 0;
 	bool throttleOnly = true;
+	String deathFaction;
+	//uint32 deathID = 0;
+
+	if (player->isRebel())
+		deathFaction = "Rebel";
+	else if (player->isImperial())
+		deathFaction = "Imperial";
+	else
+		deathFaction = "Civilian";
+
+	StringBuffer gcw_death_query;
+	gcw_death_query << "INSERT INTO pvp_death(pvp_death_id, character_oid, faction, date) VALUES (NULL," << player->getObjectID() << ",'" << deathFaction << "',NULL);";
+
+//try {
+	//ServerDatabase::instance()->executeStatement(gcw_death_query);
+	UniqueReference<ResultSet*> result(ServerDatabase::instance()->executeQuery(gcw_death_query.toString()));
+	uint32 deathID = result->getLastAffectedRow();
+	//info(String::valueOf(deathID), true);
+
+
+
+	
+	//if (result == nullptr) {
+	//	error("ERROR INSERTING INTO DEATH INTO DATABASE!");
+	//} 
+	//if (result != nullptr && result->next()){
+	//	deathID = result->getLastAffectedRow();
+		//deathID = result->getInt(0);
+	//	info(String::valueOf(deathID), true);
+	//}
+
+//} catch (const Exception& e) {
+//	fatal(e.getMessage());
+	//}
+	
+
 
 	for (int i = 0; i < threatMap->size(); ++i) {
 		ThreatMapEntry* entry = &threatMap->elementAt(i).getValue();
@@ -5805,6 +5876,13 @@ void PlayerManagerImplementation::doPvpDeathRatingUpdate(CreatureObject* player,
 
 		if (player->getDistanceTo(attacker) > 80.f)
 			continue;
+
+		float damageContr = (float) entry->getTotalDamage() / totalDamage;
+
+
+		StringBuffer gcw_kill_query;
+		gcw_kill_query << "INSERT INTO pvp_kill(pvp_kill_id, pvp_death_id, damage, character_oid, date) VALUES (NULL," << deathID << "," << damageContr << "," << attacker->getObjectID() << ",NULL);";
+		ServerDatabase::instance()->executeStatement(gcw_kill_query.toString());
 
 		int curAttackerRating = attackerGhost->getPvpRating();
 
@@ -5847,6 +5925,7 @@ void PlayerManagerImplementation::doPvpDeathRatingUpdate(CreatureObject* player,
 		}
 
 		float damageContribution = (float) entry->getTotalDamage() / totalDamage;
+
 
 		if (frsManager != nullptr && frsManager->isFrsEnabled() && frsManager->isValidFrsBattle(attacker, player)) {
 			int attackerFrsXp = frsManager->calculatePvpExperienceChange(attacker, player, damageContribution, false);

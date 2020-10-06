@@ -1,4 +1,5 @@
 #include "server/zone/managers/frs/FrsManager.h"
+#include "server/zone/managers/combat/CombatManager.h"
 #include "server/zone/managers/skill/SkillManager.h"
 #include "server/zone/ZoneServer.h"
 #include "server/zone/managers/frs/RankMaintenanceTask.h"
@@ -19,6 +20,8 @@
 #include "templates/faction/Factions.h"
 #include "server/zone/objects/player/FactionStatus.h"
 #include "server/zone/managers/player/PlayerMap.h"
+#include <map>
+
 
 void FrsManagerImplementation::initialize() {
 	auto zoneServer = this->zoneServer.get();
@@ -372,6 +375,21 @@ void FrsManagerImplementation::playerLoggedIn(CreatureObject* player) {
 }
 
 void FrsManagerImplementation::validatePlayerData(CreatureObject* player) {
+	std::map<int, int> frs_xp_caps = {
+		{0,15000},
+		{1,25000},
+		{2,37500},
+		{3,50000},
+		{4,75000},
+		{5,100000},
+		{6,125000},
+		{7,187500},
+		{8,250000},
+		{9,375000},
+		{10,625000},
+		{11,625000}
+	};
+
 	if (player == nullptr)
 		return;
 
@@ -461,6 +479,14 @@ void FrsManagerImplementation::validatePlayerData(CreatureObject* player) {
 			if (!ghost->hasPermissionGroup(groupName))
 				ghost->addPermissionGroup(groupName, true);
 		}
+	}
+
+	int curExperience = ghost->getExperience("force_rank_xp");
+	int maxExperience = frs_xp_caps.at(realPlayerRank);
+	if (curExperience >= maxExperience) {
+		curExperience *= -1;
+		ghost->addExperience("force_rank_xp", curExperience, true);
+		ghost->addExperience("force_rank_xp", maxExperience, true);
 	}
 
 	ghost->recalculateForcePower();
@@ -796,6 +822,21 @@ void FrsManagerImplementation::demotePlayer(CreatureObject* player) {
 }
 
 void FrsManagerImplementation::adjustFrsExperience(CreatureObject* player, int amount, bool sendSystemMessage) {
+	std::map<int, int> frs_xp_caps = {
+		{0,15000},
+		{1,25000},
+		{2,37500},
+		{3,50000},
+		{4,75000},
+		{5,100000},
+		{6,125000},
+		{7,187500},
+		{8,250000},
+		{9,375000},
+		{10,625000},
+		{11,625000}
+	};
+
 	if (player == nullptr || amount == 0)
 		return;
 
@@ -805,14 +846,34 @@ void FrsManagerImplementation::adjustFrsExperience(CreatureObject* player, int a
 		return;
 
 	if (amount > 0) {
-          
-          	if (ghost->hasCappedExperience("force_rank_xp"))
-                {
-                	StringIdChatParameter message("base_player", "prose_hit_xp_cap"); //You have achieved your current limit for %TO experience.
-                	message.setTO("exp_n", "force_rank_xp");
-                	player->sendSystemMessage(message);
-                	return;
-                }
+	        FrsData* playerData = ghost->getFrsData();
+			int rank = playerData->getRank();
+			int councilType = playerData->getCouncilType();
+			int curExperience = ghost->getExperience("force_rank_xp");
+			int totalExperience = curExperience + amount;
+			int maxExperience = frs_xp_caps.at(rank);
+			//info(String::valueOf(rank), true);
+			//info(String::valueOf(councilType), true);
+			//info(String::valueOf(curExperience), true);
+			//info(String::valueOf(totalExperience), true);
+			//info(String::valueOf(frs_xp_caps.at(1)), true);
+			//info(String::valueOf(frs_xp_caps.at(rank)), true);
+
+			if (totalExperience >= maxExperience){
+				int newAmount = maxExperience - curExperience;
+	          	//if (ghost->hasCappedExperience("force_rank_xp"))
+	                //{
+				ghost->addExperience("force_rank_xp", newAmount, true);
+				StringIdChatParameter param("@force_rank:experience_granted"); // You have gained %DI Force Rank experience.
+				param.setDI(newAmount);
+				player->sendSystemMessage(param);
+
+            	StringIdChatParameter message("base_player", "prose_hit_xp_cap"); //You have achieved your current limit for %TO experience.
+            	message.setTO("exp_n", "force_rank_xp");
+            	player->sendSystemMessage(message);
+            	return;
+	                //}
+			}
           
 		ghost->addExperience("force_rank_xp", amount, true);
 
@@ -924,7 +985,7 @@ void FrsManagerImplementation::deductMaintenanceXp(CreatureObject* player) {
 	if (rank == 0)
 		return;
 
-	int maintXp = baseMaintCost * rank;
+	int maintXp = baseMaintCost * rank; // * 5;
 
 	auto zoneServer = this->zoneServer.get();
 	ChatManager* chatManager = zoneServer->getChatManager();
@@ -995,6 +1056,9 @@ bool FrsManagerImplementation::isValidFrsBattle(CreatureObject* attacker, Creatu
 	if ((attackerCouncil == COUNCIL_LIGHT && victimCouncil == COUNCIL_LIGHT) || (attackerCouncil == COUNCIL_DARK && victimCouncil == COUNCIL_DARK))
 		return false;
 
+	if (CombatManager::instance()->areInDuel(attacker, victim))
+		return false;
+
 	return true;
 }
 
@@ -1034,7 +1098,8 @@ int FrsManagerImplementation::calculatePvpExperienceChange(CreatureObject* attac
 	int xpChange = getBaseExperienceGain(playerGhost, opponentGhost, !isVictim);
 
 	if (xpChange != 0) {
-		xpChange = (int)((float)xpChange * contribution);
+		// Give full FRS xp
+		xpChange = (int)((float)xpChange / 1);
 
 		// Adjust xp value depending on pvp rating
 		// A lower rated victim will lose less experience, a higher rated victim will lose more experience

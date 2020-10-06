@@ -42,6 +42,13 @@ public:
 		if (!checkGroupLeader(player, group))
 			return GENERALERROR;
 
+		for (int i = 0; i < group->getGroupSize(); i ++){
+			ManagedReference<CreatureObject*> member = group->getGroupMember(i);
+
+			if (!checkDistance(player, member, 64))
+				return GENERALERROR;
+		}
+
 		int hamCost = (int) (100.0f * calculateGroupModifier(group));
 
 		int healthCost = creature->calculateCostAdjustment(CreatureAttribute::STRENGTH, hamCost);

@@ -22,11 +22,9 @@ class LambdaShuttleWithReinforcementsTask : public Task {
 	int difficulty;
 	int spawnNumber;
 	String chatMessageId;
-	Vector3 spawnPosition;
-	Quaternion spawnDirection;
 
 	const String LAMBDATEMPLATE = "object/creature/npc/theme_park/lambda_shuttle.iff";
-	const int TIMETILLSHUTTLELANDING = 100;
+	const int TIMETILLSHUTTLELANDING = 6000;
 	const int LANDINGTIME = 18000;
 	const int SPAWNDELAY = 750;
 	const int CLEANUPTIME = 30000;
@@ -84,17 +82,11 @@ class LambdaShuttleWithReinforcementsTask : public Task {
 	LambdaTroop* troops;
 
 	void spawnSingleTroop(SceneObject* lambdaShuttle, CreatureObject* player, const String& creatureTemplate, float xOffset, float yOffset) {
-		Quaternion offset = Quaternion(0, xOffset, 0, yOffset);
-		Quaternion rotation = Quaternion(Vector3(0, 1, 0), spawnDirection.getRadians());
-		offset = rotation * offset * rotation.getConjugate();  // Rotate offset quaternion to match spawnDirection.
-
 		Zone* zone = lambdaShuttle->getZone();
-		float x = lambdaShuttle->getPositionX() + offset.getX();
-		float y = lambdaShuttle->getPositionY() + offset.getZ();
+		float x = lambdaShuttle->getPositionX() + xOffset;
+		float y = lambdaShuttle->getPositionY() + yOffset;
 		float z = zone->getHeight(x, y);
-
-		AiAgent* npc = cast<AiAgent*>(zone->getCreatureManager()->spawnCreature(creatureTemplate.hashCode(), 0, x, z, y, 0, false, spawnDirection.getRadians()));
-
+		AiAgent* npc = cast<AiAgent*>(zone->getCreatureManager()->spawnCreature(creatureTemplate.hashCode(), 0, x, z, y, 0, false));
 		if (npc != nullptr) {
 			Locker npcLock(npc);
 			npc->activateLoad("");
@@ -128,8 +120,7 @@ class LambdaShuttleWithReinforcementsTask : public Task {
 	}
 
 	void lambdaShuttleSpawn(SceneObject* lambdaShuttle, CreatureObject* player) {
-		lambdaShuttle->initializePosition(spawnPosition.getX(), spawnPosition.getZ(), spawnPosition.getY());
-		lambdaShuttle->setDirection(spawnDirection);
+		lambdaShuttle->initializePosition(player->getPositionX(), player->getPositionZ(), player->getPositionY());
 		player->getZone()->transferObject(lambdaShuttle, -1, true);
 		lambdaShuttle->createChildObjects();
 		lambdaShuttle->_setUpdated(true);
@@ -166,9 +157,7 @@ class LambdaShuttleWithReinforcementsTask : public Task {
 				if (npc->isInCombat()) {
 					rescheduleTask = true;
 				} else {
-					if (!npc->isDead()) {
-						npc->destroyObjectFromWorld(true);
-					}
+					npc->destroyObjectFromWorld(true);
 					containmentTeam.remove(i);
 				}
 			} else {
@@ -201,7 +190,7 @@ class LambdaShuttleWithReinforcementsTask : public Task {
 	}
 
 public:
-	LambdaShuttleWithReinforcementsTask(CreatureObject* player, unsigned int faction, unsigned int difficulty, String chatMessageId, Vector3 position, Quaternion direction) {
+	LambdaShuttleWithReinforcementsTask(CreatureObject* player, unsigned int faction, unsigned int difficulty, String chatMessageId) {
 		weakPlayer = player;
 		state = SPAWN;
 		if (difficulty > MAXDIFFICULTY) {
@@ -218,8 +207,6 @@ public:
 		}
 		this->chatMessageId = chatMessageId;
 		spawnNumber = 0;
-		spawnPosition = position;
-		spawnDirection = direction;
 	}
 
 	void run() {

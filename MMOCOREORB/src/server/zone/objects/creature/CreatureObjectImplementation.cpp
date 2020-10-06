@@ -90,6 +90,7 @@
 #include "templates/appearance/PaletteTemplate.h"
 #include "server/zone/managers/auction/AuctionSearchTask.h"
 
+
 float CreatureObjectImplementation::DEFAULTRUNSPEED = 5.376f;
 
 void CreatureObjectImplementation::initializeTransientMembers() {
@@ -1185,9 +1186,11 @@ void CreatureObjectImplementation::setWounds(int type, int value,
 		bool notifyClient) {
 	if (value < 0)
 		value = 0;
-
-	if (value >= baseHAM.get(type))
-		value = baseHAM.get(type) - 1;
+	//info(String::valueOf(baseHAM.get(type)), true);
+	if (value >= (baseHAM.get(type) * 0.333)) {
+		value = (baseHAM.get(type) * 0.333) - 1;
+		//info(String::valueOf(value), true);
+	}
 
 	if (wounds.get(type) == value)
 		return;
@@ -1966,6 +1969,7 @@ void CreatureObjectImplementation::activateQueueAction() {
 	}
 
 	// Remove element from queue after it has been executed in order to ensure that other commands are enqueued and not activated at immediately.
+
 	for (int i = 0; i < commandQueue->size(); i++) {
 		Reference<CommandQueueAction*> actionToDelete = commandQueue->get(i);
 		if (action->getCommand() == actionToDelete->getCommand() && action->getActionCounter() == actionToDelete->getActionCounter() && action->getCompareToCounter() == actionToDelete->getCompareToCounter()) {
@@ -2807,9 +2811,9 @@ void CreatureObjectImplementation::activatePassiveWoundRegeneration() {
 	if(healthRegen > 0) {
 		healthWoundHeal += (int)(healthRegen * 0.2);
 		if(healthWoundHeal >= 100) {
-			healWound(asCreatureObject(), CreatureAttribute::HEALTH, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::STRENGTH, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::CONSTITUTION, 1, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::HEALTH, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::STRENGTH, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::CONSTITUTION, 5, true, false);
 			healthWoundHeal -= 100;
 		}
 	}
@@ -2820,9 +2824,9 @@ void CreatureObjectImplementation::activatePassiveWoundRegeneration() {
 	if(actionRegen > 0) {
 		actionWoundHeal += (int)(actionRegen * 0.2);
 		if(actionWoundHeal >= 100) {
-			healWound(asCreatureObject(), CreatureAttribute::ACTION, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::QUICKNESS, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::STAMINA, 1, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::ACTION, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::QUICKNESS, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::STAMINA, 5, true, false);
 			actionWoundHeal -= 100;
 		}
 	}
@@ -2833,9 +2837,9 @@ void CreatureObjectImplementation::activatePassiveWoundRegeneration() {
 	if(mindRegen > 0) {
 		mindWoundHeal += (int)(mindRegen * 0.2);
 		if(mindWoundHeal >= 100) {
-			healWound(asCreatureObject(), CreatureAttribute::MIND, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::FOCUS, 1, true, false);
-			healWound(asCreatureObject(), CreatureAttribute::WILLPOWER, 1, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::MIND, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::FOCUS, 5, true, false);
+			healWound(asCreatureObject(), CreatureAttribute::WILLPOWER, 5, true, false);
 			mindWoundHeal -= 100;
 		}
 	}
@@ -3008,8 +3012,8 @@ bool CreatureObjectImplementation::isAggressiveTo(CreatureObject* object) {
 	if (ghost->isOnLoadScreen())
 		return false;
 
-	if (hasPersonalEnemyFlag(object) && object->hasPersonalEnemyFlag(asCreatureObject()))
-		return true;
+	//if (hasPersonalEnemyFlag(object) && object->hasPersonalEnemyFlag(asCreatureObject()))
+	//	return true;
 
 	if (ConfigManager::instance()->getPvpMode() && isPlayerCreature())
 		return true;
@@ -3017,16 +3021,155 @@ bool CreatureObjectImplementation::isAggressiveTo(CreatureObject* object) {
 	if (CombatManager::instance()->areInDuel(object, asCreatureObject()))
 		return true;
 
-	if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFaction() != getFaction())
+	//if (getFaction() == Factions::FACTIONNEUTRAL && ghost->hasBhTef() && ghost->hasGroupTefTowards(object->getGroupID()))
+	//	return true;
+
+	//BH GTEF for Later use
+	//TODO: the defender ghost no longer has a group so // he has a tef towards my group not me
+	// ghost no longer has a tef towards the group of object if object is not grouped
+	//ManagedReference<CreatureObject*> ghostObject = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	//ManagedReference<CreatureObject*> ghostObject = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	ManagedReference<CreatureObject*> ghostObject = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	if (targetGhost->hasBhTef() && ghost->hasBhTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID())) {
 		return true;
+	}
+
+	if (targetGhost->hasBhTef() && ghost->hasBhTef() && ghost->hasGroupTefTowards(object->getGroupID())) {
+		return true;
+		/*ManagedReference<GroupObject*> group = object->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}*/
+	} /*else if (ghost->hasBhTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID())) {
+		ManagedReference<GroupObject*> ghostGroup = ghostObject->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < ghostGroup->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> ghostGroupMember = ghostGroup->getGroupMember(i);
+				if (ghostGroupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
 
 	if (ghost->hasBhTef() && (hasBountyMissionFor(object) || object->hasBountyMissionFor(asCreatureObject()))) {
 		return true;
 	}
 
+	if (object->getFaction() == Factions::FACTIONNEUTRAL || getFaction() == Factions::FACTIONNEUTRAL) { 
+		return false; 
+	}
+
+	if (object->getFaction() == getFaction() && object->getFaction() != 0 && (object->getFaction() == Factions::FACTIONREBEL || object->getFaction() == Factions::FACTIONIMPERIAL)) {
+		return false;
+	}
+
+	if (ghost->hasGroupTefTowards(object->getGroupID()))
+		return true;
+
+	//GTEF for Later use
+	/*if (ghost->hasGroupTefTowards(object->getGroupID())){
+		ManagedReference<GroupObject*> group = object->getGroup().get();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					info("AGG Group Guy: " + object->getFirstName(), true);
+					info("AGG Group Memeber: " + groupMember->getFirstName(), true);
+					return true;
+				}
+			}
+		}
+	}*/
+
+	//if (object->isGrouped()){
+	//if (ghost->hasGroupTef()) {
+	//Reference<CreatureObject*> ghostObject = ghost->getParent().get()->asCreatureObject();
+	//ZoneServer* zoneServer = getZoneServer();
+	//ManagedReference<CreatureObject*> ghostObject = zoneServer->getObject(ghost->getObjectID()).castTo<CreatureObject*>();
+	//ManagedReference<CreatureObject*> ghostObject = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	//if (ghost->hasGroupTef())
+
+	//if (targetGhost->hasGroupTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID()))
+		//return true;
+	//if (targetGhost->hasGroupTefTowards(ghostObject->getGroupID()))
+		//return true;
+	//if (object->getGroupID() != 0 && ghost->hasGroupTefTowards(object->getGroupID())) {
+		//if (ghost->hasGroupTefTowards(object->getGroupID())){
+			//return true;
+		//info("isAggressiveTo group", true);
+		//info(String::valueOf(object->getGroupID()) + ": Object Group Id.", true);
+		//return true;
+			/*ManagedReference<GroupObject*> defenderGroup = object->getGroup();
+			if (defenderGroup != nullptr) {
+				for (int i = 0; i < defenderGroup->getGroupSize(); i++) {
+					ManagedReference<CreatureObject*> groupMember = defenderGroup->getGroupMember(i);
+					if (groupMember->isPlayerCreature()) {
+						return true;
+					}
+				}
+			}*/
+		//}
+	//}
+
+	if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFaction() != getFaction())
+		return true;
+
+
+	//if (object->getFaction() == Factions::FACTIONNEUTRAL || getFaction() == Factions::FACTIONNEUTRAL){ 
+	//	return false; 
+	//}
+
+
+
+
+
+	// TEF FIX
+	if ((ghost->hasRealGcwTef() || targetGhost->hasRealGcwTef()) && getFaction() != object->getFaction()) //object->getPvpStatusBitmask() & CreatureFlag::TEF) 
+		return true;
+
 	ManagedReference<GuildObject*> guildObject = guild.get();
 	if (guildObject != nullptr && guildObject->isInWaringGuild(object))
 		return true;
+
+
+
+	//GTEF for Later use
+	/*if (ghost->hasGroupTef() && object->isGrouped()){
+		ManagedReference<GroupObject*> group = object->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
+
+
+	//BH GTEF for Later use
+	/*if (ghost->hasBhTef() && object->isGrouped()){
+		ManagedReference<GroupObject*> group = object->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
+
+	//if (ghost->hasGroupTef())
+	//	return true;
+
+
 
 	return false;
 }
@@ -3052,10 +3195,6 @@ bool CreatureObjectImplementation::isAttackableBy(TangibleObject* object, bool b
 	if ((!bypassDeadCheck && (isDead() || (isIncapacitated() && !isFeigningDeath()))) || isInvisible())
 		return false;
 
-	if (ghost->hasCrackdownTefTowards(object->getFaction())) {
-		return true;
-	}
-
 	if (getPvpStatusBitmask() == CreatureFlag::NONE)
 		return false;
 
@@ -3070,8 +3209,16 @@ bool CreatureObjectImplementation::isAttackableBy(TangibleObject* object, bool b
 		return false;
 
 	// if tano is overt, creature must be overt
-	if((object->getPvpStatusBitmask() & CreatureFlag::OVERT) && !(getPvpStatusBitmask() & CreatureFlag::OVERT))
+	// TEF FIX
+	if((getFactionStatus() == FactionStatus::COVERT && !(ghost->hasRealGcwTef())) && object->getFaction() != 0) { //getPvpStatusBitmask() & CreatureFlag::TEF
+		//info("tano being run.", true);
 		return false;
+	//} else if((object->getPvpStatusBitmask() & CreatureFlag::OVERT) && !(getPvpStatusBitmask() & CreatureFlag::OVERT)) {
+	//	return false;
+	}
+	
+	//if((object->getPvpStatusBitmask() & CreatureFlag::OVERT) && !(getPvpStatusBitmask() & CreatureFlag::OVERT))
+	//	return false;
 
 	// the other options are overt creature / overt tano  and covert/covert, covert tano, overt creature..  all are attackable
 	return true;
@@ -3099,15 +3246,11 @@ bool CreatureObjectImplementation::isAttackableBy(CreatureObject* object, bool b
 				return false;
 			if (ConfigManager::instance()->getPvpMode())
 				return true;
-
-			if (object->isAiAgent() && ghost->hasCrackdownTefTowards(object->getFaction())) {
-				return true;
-			}
 		}
 	}
 
 	if (object->isAiAgent()) {
-
+		PlayerObject* ghost = getPlayerObject();
 		if (object->isPet()) {
 			ManagedReference<PetControlDevice*> pcd = object->getControlDevice().get().castTo<PetControlDevice*>();
 			if (pcd != nullptr && pcd->getPetType() == PetManager::FACTIONPET && isNeutral()) {
@@ -3129,6 +3272,8 @@ bool CreatureObjectImplementation::isAttackableBy(CreatureObject* object, bool b
 			return false;
 		else if (isPlayerCreature() && getFactionStatus() == FactionStatus::ONLEAVE)
 			return false;
+		else if (isPlayerCreature() && getFactionStatus() == FactionStatus::COVERT && !ghost->hasRealGcwTef() && ghost != nullptr)
+			return false;
 
 		return true;
 	}
@@ -3139,26 +3284,172 @@ bool CreatureObjectImplementation::isAttackableBy(CreatureObject* object, bool b
 	if (ghost == nullptr || targetGhost == nullptr)
 		return false;
 
-	if (hasPersonalEnemyFlag(object) && object->hasPersonalEnemyFlag(asCreatureObject()))
-		return true;
+	//if (hasPersonalEnemyFlag(object) && object->hasPersonalEnemyFlag(asCreatureObject()))
+	//	return true;
 
 	bool areInDuel = (ghost->requestedDuelTo(object) && targetGhost->requestedDuelTo(asCreatureObject()));
 
 	if (areInDuel)
 		return true;
 
+	//if (getFaction() == Factions::FACTIONNEUTRAL && ghost->hasBhTef() && ghost->hasGroupTefTowards(object->getGroupID()))
+	//	return true;
+
+	//BH GTEF for Later use
+	ManagedReference<CreatureObject*> ghostObject = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	if (targetGhost->hasBhTef() && ghost->hasBhTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID())) {
+		return true;
+	}
+
+	if (ghost->hasBhTef() && ghost->hasGroupTefTowards(object->getGroupID())) {
+		return true;
+		/*ManagedReference<GroupObject*> group = object->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}*/
+		//NOTWORKING
+	} /*else if (ghost->hasBhTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID())) {
+		ManagedReference<GroupObject*> ghostGroup = ghostObject->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < ghostGroup->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> ghostGroupMember = ghostGroup->getGroupMember(i);
+				if (ghostGroupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
+
 	if (object->hasBountyMissionFor(asCreatureObject()) || (ghost->hasBhTef() && hasBountyMissionFor(object)))
 		return true;
+
+	if (object->getFaction() == getFaction() && object->getFaction() != 0 && (object->getFaction() == Factions::FACTIONREBEL || object->getFaction() == Factions::FACTIONIMPERIAL)) {
+		return false;
+	}
 
 	if (getGroupID() != 0 && getGroupID() == object->getGroupID())
 		return false;
 
-	if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFaction() != getFaction())
+	if (object->getFaction() == Factions::FACTIONNEUTRAL || getFaction() == Factions::FACTIONNEUTRAL){ 
+		return false; 
+	}
+
+	if (ghost->hasGroupTefTowards(object->getGroupID()))
 		return true;
+
+	//GTEF for Later use
+	/*if (ghost->hasGroupTefTowards(object->getGroupID())){
+		ManagedReference<GroupObject*> group = object->getGroup().get();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					info("ATT Group Guy: " + object->getFirstName(), true);
+					info("ATT Group Memeber: " + groupMember->getFirstName(), true);
+					return true;
+				}
+			}
+		}
+	}*/
+
+	//Reference<CreatureObject*> ghostObject = ghost->getParent().get()->asCreatureObject();
+	//if (ghost->hasGroupTef())
+	//Reference<CreatureObject*> ghostObject = ghost->getParent().get()->asCreatureObject();
+	// && targetGhost->hasGroupTefTowards(ghostObject->getGroupID()))
+	//if (targetGhost->hasGroupTef() && targetGhost->hasGroupTefTowards(ghostObject->getGroupID()))
+		
+	
+	//if (targetGhost->hasGroupTefTowards(ghostObject->getGroupID()))
+	//	return true;
+	//if (!bhFight) {
+		//ManagedReference<PlayerObject*> ghostPlayer = ghost->getPlayerObject();
+	if (object->getFaction() != getFaction() && object->getFaction() != 0 && (object->getFaction() == Factions::FACTIONREBEL || object->getFaction() == Factions::FACTIONIMPERIAL)) {
+		if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT))
+			return true;
+		if (ghost->hasRealGcwTef() && object->getPvpStatusBitmask() & CreatureFlag::OVERT)
+			return true;
+		if ((pvpStatusBitmask & CreatureFlag::OVERT && ghost->hasRealGcwTef()) && targetGhost->hasRealGcwTef())
+			return true;
+		if (ghost->hasRealGcwTef() && targetGhost->hasRealGcwTef())
+			return true;
+		//return false;
+	}
+
+
+	//}
+	//if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFaction() != getFaction())
+	//	return true;
+	//if ((targetGhost->hasPvpTef()) && (object->getFaction() != getFaction()) && (object->getFaction() != 0) && object->getPvpStatusBitmask() & CreatureFlag::OVERT && !(bhFight)) //pvpStatusBitmask & CreatureFlag::TEF
+	//	return true;
+	/*if ((pvpStatusBitmask & CreatureFlag::OVERT && ghost->hasPvpTef()) && (object->getFaction() != getFaction()) && (object->getFaction() != 0) && targetGhost->hasPvpTef() && !(bhFight))
+		return true;
+	if ((object->getFaction() != getFaction()) && ghost->hasPvpTef() && targetGhost->hasPvpTef() && !(bhFight))
+		return true;*/
 
 	ManagedReference<GuildObject*> guildObject = guild.get();
 	if (guildObject != nullptr && guildObject->isInWaringGuild(object))
 		return true;
+	//if (object->isGrouped()){
+
+	//}
+
+	//ManagedReference<CreatureObject*> player = creature->asCreatureObject();
+	//ManagedReference<CreatureObject*> player = cast<CreatureObject*>(creature);
+	//ManagedReference<CreatureObject*> player = cast<CreatureObject*>(creature);
+	//ManagedReference<CreatureObject*> player = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+	// convert ghost to creature object to get group id
+	/*if (ghost->hasGroupTef()){
+		ManagedReference<CreatureObject*> creatureGhost = dynamic_cast<CreatureObject*>(ghost->getParent().get().get());
+		if (!creatureGhost->isGrouped()){
+			return true;
+		}
+		if (object->isGrouped()){
+			ManagedReference<GroupObject*> attackedGroup = object->getGroup().get();
+			if (attackedGroup != nullptr) {
+				//int attackedGroupID = attackedGroup->getGroupID();
+				for (int i = 0; i < attackedGroup->getGroupSize(); i++) {
+					ManagedReference<CreatureObject*> groupMember = attackedGroup->getGroupMember(i);
+					if (groupMember->isPlayerCreature()) {
+						return true;
+					}
+				}
+			}
+		}
+	}*/
+	//GTEF for later use
+	/*if (ghost->hasGroupTef() && object->isGrouped()){
+		ManagedReference<GroupObject*> attackedGroup = object->getGroup().get();
+
+		if (attackedGroup != nullptr) {
+			int attackedGroupID = attackedGroup->getGroupID();
+			for (int i = 0; i < attackedGroup->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = attackedGroup->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
+
+	//BH GTEF for later use
+	/*if (ghost->hasBhTef() && object->isGrouped()){
+		ManagedReference<GroupObject*> group = object->getGroup();
+		if (group != nullptr) {
+			for (int i = 0; i < group->getGroupSize(); i++) {
+				ManagedReference<CreatureObject*> groupMember = group->getGroupMember(i);
+				if (groupMember->isPlayerCreature()) {
+					return true;
+				}
+			}
+		}
+	}*/
+
+
 
 	return false;
 }
@@ -3177,9 +3468,10 @@ bool CreatureObjectImplementation::isHealableBy(CreatureObject* object) {
 
 	if (ghost == nullptr)
 		return false;
-
-	if (ghost->hasBhTef())
-		return false;
+	// Remove BHTef for healing
+	//if healer has BFTef, healer can heal
+	//if (ghost->hasBhTef())
+	//	return false;
 
 	//if ((pvpStatusBitmask & CreatureFlag::OVERT) && (object->getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFaction() != getFaction())
 
@@ -3196,26 +3488,38 @@ bool CreatureObjectImplementation::isHealableBy(CreatureObject* object) {
 	uint32 targetFactionStatus = targetCreo->getFactionStatus();
 	uint32 currentFactionStatus = object->getFactionStatus();
 
-	if (getFaction() != object->getFaction() && !(targetFactionStatus == FactionStatus::ONLEAVE))
-		return false;
+	//if (getFaction() != object->getFaction() && !(targetFactionStatus == FactionStatus::ONLEAVE))
+	//if (getFaction() != object->getFaction() && (targetFactionStatus == FactionStatus::COVERT))
+	//	return false;
 
-	if ((targetFactionStatus == FactionStatus::OVERT) && !(currentFactionStatus == FactionStatus::OVERT))
-		return false;
+	//if ((targetFactionStatus == FactionStatus::OVERT) && !(currentFactionStatus == FactionStatus::OVERT))
+	//	return false;
 
-	if (!(targetFactionStatus == FactionStatus::ONLEAVE) && (currentFactionStatus == FactionStatus::ONLEAVE))
-		return false;
+	//if (!(targetFactionStatus == FactionStatus::ONLEAVE) && (currentFactionStatus == FactionStatus::ONLEAVE))
+	//	return false;
 
 	if(targetCreo->isPlayerCreature()) {
 		PlayerObject* targetGhost = targetCreo->getPlayerObject();
-		if(targetGhost != nullptr && targetGhost->hasBhTef())
-			return false;
+		if(targetGhost != nullptr){
+			//if(getFaction() != object->getFaction() && (targetFactionStatus == FactionStatus::COVERT || targetGhost->hasPvpTef()))
+			//	return false;
+			if(getFaction() != object->getFaction()) {
+				if(targetFactionStatus == FactionStatus::COVERT && targetGhost->hasRealGcwTef())
+					return false;
+				if(targetFactionStatus == FactionStatus::OVERT)
+					return false;
+			}
+		}
+		/*if(targetGhost != nullptr && getFaction() != object->getFaction() && object-> getFaction() == Factions::FACTIONNEUTRAL && targetFactionStatus == FactionStatus::COVERT && !(targetGhost->hasPvpTef()))
+			return true;
+		if(targetGhost != nullptr && (targetGhost->hasPvpTef() || ghost->hasPvpTef()) && object-> getFaction() != Factions::FACTIONNEUTRAL)
+			return true;*/
+		//if(targetGhost != nullptr && (Factions::FACTIONNEUTRAL))
+		//if(targetGhost != nullptr && targetGhost->hasBhTef())
+		//	return false;
 	}
 
 	return true;
-}
-
-bool CreatureObjectImplementation::isInvulnerable()  {
-	return isPlayerCreature() && (getPvpStatusBitmask() & CreatureFlag::PLAYER) == 0;
 }
 
 bool CreatureObjectImplementation::hasBountyMissionFor(CreatureObject* target) {
@@ -3414,7 +3718,7 @@ void CreatureObjectImplementation::setFaction(unsigned int crc) {
 
 			if (creatureTemplate != nullptr) {
 				String templateFaction = creatureTemplate->getFaction();
-
+					 //&& factionStatus == FactionStatus::COVERT
 				if (!templateFaction.isEmpty() && (templateFaction.hashCode() != crc)) {
 					petsToStore.add(pet.castTo<CreatureObject*>());
 					player->sendSystemMessage("You're no longer the right faction for one of your pets, storing...");

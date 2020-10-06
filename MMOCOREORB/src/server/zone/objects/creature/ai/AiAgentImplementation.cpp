@@ -2803,19 +2803,21 @@ bool AiAgentImplementation::isAggressiveTo(CreatureObject* target) {
 	uint32 targetFaction = target->getFaction();
 	PlayerObject* ghost = target->getPlayerObject();
 
-	if (ghost != nullptr && ghost->hasCrackdownTefTowards(getFaction())) {
-		return true;
-	}
-
 	// check the GCW factions if both entities have one
 	if (getFaction() != 0 && targetFaction != 0) {
 
 		// this is basically the isEnemy check, but with the GCW faction (they should both return the same thing)
 		if (ghost == nullptr && (targetFaction != getFaction()))
 			return true;
+		// TEF FIX
+		//else if (hasPersonalEnemyFlag(target) || target->hasPersonalEnemyFlag(asCreatureObject()))
+		//	return true;
+		//else if (ghost != nullptr && (ghost->hasPersonalEnemyFlag() && target->hasPersonalEnemyFlag(asCreatureObject()) && (targetFaction == getFaction()) && target->getFactionStatus() == FactionStatus::COVERT))
+		//	return true;
 		// this is the same thing, but ensures that if the target is a player, that they aren't on leave
-		else if (ghost != nullptr && (targetFaction != getFaction()) && target->getFactionStatus() != FactionStatus::ONLEAVE)
+		else if (ghost != nullptr && (targetFaction != getFaction()) && (target->getFactionStatus() == FactionStatus::OVERT || ghost->hasRealGcwTef())) //target->getPvpStatusBitmask() & CreatureFlag::TEF
 			return true;
+		
 	}
 
 	// now grab the generic faction (which could include imp/reb)
@@ -3294,13 +3296,6 @@ bool AiAgentImplementation::isAttackableBy(CreatureObject* object) {
 
 	if (pvpStatusBitmask == 0) {
 		return false;
-	}
-
-	if (object->isPlayerCreature()) {
-		Reference<PlayerObject*> ghost = object->getPlayerObject();
-		if (ghost != nullptr && ghost->hasCrackdownTefTowards(getFaction())) {
-			return true;
-		}
 	}
 
 	unsigned int targetFaction = object->getFaction();

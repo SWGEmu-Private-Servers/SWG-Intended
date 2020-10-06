@@ -29,6 +29,10 @@
 #include "server/zone/objects/creature/commands/TransferstructureCommand.h"
 #include "pathfinding/RecastNavMesh.h"
 #include "server/zone/objects/pathfinding/NavArea.h"
+#include "server/zone/objects/player/sessions/CityRemoveMilitiaSession.h"
+#include "server/zone/objects/player/sui/callbacks/CityRemoveMilitiaMemberSuiCallback.h"
+#include "server/zone/objects/player/sui/callbacks/CityManageMilitiaSuiCallback.h"
+#include "server/zone/objects/player/sui/callbacks/CityAddMilitiaMemberSuiCallback.h"
 
 int BoardShuttleCommand::MAXIMUM_PLAYER_COUNT = 3000;
 
@@ -449,6 +453,9 @@ void CityRegionImplementation::addZoningRights(uint64 objectid, uint32 duration)
 
 bool CityRegionImplementation::hasZoningRights(uint64 objectid) {
 	if(getMayorID() != 0 && objectid == getMayorID())
+		return true;
+
+	if(isMilitiaMember(objectid))
 		return true;
 
 	uint32 timestamp = zoningRights.get(objectid);

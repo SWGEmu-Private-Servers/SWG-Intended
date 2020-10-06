@@ -220,7 +220,7 @@ void TangibleObjectImplementation::setFactionStatus(int status) {
 			if (creatureTemplate != nullptr && creature->getFaction() != 0) {
 				const auto& templateFaction = creatureTemplate->getFaction();
 
-				if (!templateFaction.isEmpty() && factionStatus == FactionStatus::ONLEAVE) {
+				if (!templateFaction.isEmpty() && factionStatus == FactionStatus::COVERT) {
 					petsToStore.add(pet.castTo<CreatureObject*>());
 					creature->sendSystemMessage("You're no longer the right faction status for one of your pets, storing...");
 					continue;
@@ -1102,7 +1102,7 @@ bool TangibleObjectImplementation::isAttackableBy(TangibleObject* object) {
 bool TangibleObjectImplementation::isAttackableBy(CreatureObject* object) {
 	if (object->isPlayerCreature()) {
 		Reference<PlayerObject*> ghost = object->getPlayerObject();
-		if (ghost != nullptr && ghost->hasCrackdownTefTowards(getFaction())) {
+		if (ghost != nullptr && ghost->hasGroupTefTowards(object->getGroupID())) {
 			return true;
 		}
 		if (isImperial() && (!object->isRebel() || object->getFactionStatus() == 0)) {
@@ -1116,6 +1116,15 @@ bool TangibleObjectImplementation::isAttackableBy(CreatureObject* object) {
 		return false;
 	} else if (isRebel() && !(object->isImperial())) {
 		return false;
+	/*} else if (object->isPlayerCreature()) {
+		if (isImperial() && (!object->isRebel() || object->getFactionStatus() == 0)) {
+			return false;
+		}
+
+		if (isRebel() && (!object->isImperial() || object->getFactionStatus() == 0)) {
+			return false;
+		}*/
+
 	} else if (object->isAiAgent()) {
 		AiAgent* ai = object->asAiAgent();
 

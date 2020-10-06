@@ -669,9 +669,16 @@ bool InstallationObjectImplementation::isAggressiveTo(CreatureObject* target) {
 		return false;
 
 	if (target->isPlayerCreature()) {
-		Reference<PlayerObject*> ghost = target->getPlayerObject();
-		if (ghost != nullptr && ghost->hasCrackdownTefTowards(getFaction())) {
-			return true;
+		if (getFaction() != 0 && target->getFaction() != 0 && getFaction() != target->getFaction()) {
+			Reference<PlayerObject*> ghost = target->getPlayerObject();
+			if (ghost != nullptr && target->getFactionStatus() == FactionStatus::OVERT)// || ghost->hasPvpTef()) //target->getPvpStatusBitmask() & CreatureFlag::TEF)
+				return true;
+			if (ghost != nullptr && ghost->hasRealGcwTef()) //target->getPvpStatusBitmask() & CreatureFlag::TEF)
+				return true;
+			if (ghost != nullptr && target->getFactionStatus() == FactionStatus::COVERT)
+				return false;
+			//if (ghost->hasPvpTef() && target->getFactionStatus() == FactionStatus::COVERT)
+			//	return true;
 		}
 	}
 
@@ -724,6 +731,13 @@ bool InstallationObjectImplementation::isAttackableBy(CreatureObject* object) {
 	unsigned int thisFaction = getFaction();
 	unsigned int otherFaction = object->getFaction();
 
+	if (otherFaction != 0 && thisFaction != 0) {
+		if (otherFaction == thisFaction) {
+			return false;
+		}
+
+	}
+
 	if (object->isPet()) {
 		ManagedReference<CreatureObject*> owner = object->getLinkedCreature().get();
 
@@ -735,25 +749,17 @@ bool InstallationObjectImplementation::isAttackableBy(CreatureObject* object) {
 	} else if (object->isPlayerCreature()) {
 		if (thisFaction != 0) {
 			Reference<PlayerObject*> ghost = object->getPlayerObject();
-			if (ghost != nullptr && ghost->hasCrackdownTefTowards(thisFaction)) {
-				return true;
-			}
-			if (otherFaction != 0 && otherFaction == thisFaction) {
-				return false;
-			}
+			//if (ghost != nullptr && ghost->hasRealGcwTef()) {
+			//	return true;
+			//}
+
 			if (object->getFactionStatus() == 0) {
 				return false;
 			}
 
-			if ((getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFactionStatus() != FactionStatus::OVERT) {
+			if ((getPvpStatusBitmask() & CreatureFlag::OVERT) && object->getFactionStatus() != FactionStatus::COVERT) {
 				return false;
 			}
-		}
-	}
-
-	if (otherFaction != 0 && thisFaction != 0) {
-		if (otherFaction == thisFaction) {
-			return false;
 		}
 	}
 

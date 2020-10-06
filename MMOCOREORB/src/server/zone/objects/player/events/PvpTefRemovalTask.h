@@ -33,16 +33,24 @@ public:
 
 		Locker locker(player);
 
-		if (ghost->hasTef()) {
-			auto gcwCrackdownTefMs = ghost->getLastGcwCrackdownCombatActionTimestamp().miliDifference();
+		if (ghost->hasPvpTef() || ghost->hasRealGcwTef() || ghost->hasGroupTef()) {
 			auto gcwTefMs = ghost->getLastGcwPvpCombatActionTimestamp().miliDifference();
 			auto bhTefMs = ghost->getLastBhPvpCombatActionTimestamp().miliDifference();
-			auto rescheduleTime = gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs;
-			rescheduleTime = gcwCrackdownTefMs < rescheduleTime ? gcwCrackdownTefMs : rescheduleTime;
-			this->reschedule(llabs(rescheduleTime));
+			auto realGcwTefMs = ghost->getLastRealGcwTefPvpCombatActionTimestamp().miliDifference();
+			auto groupTefMs = ghost->getLastGroupTefPvpCombatActionTimestamp().miliDifference();
+			auto scheduledTime = gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs;
+			scheduledTime = realGcwTefMs < scheduledTime ? realGcwTefMs : scheduledTime;
+			scheduledTime = groupTefMs < scheduledTime ? groupTefMs : scheduledTime;
+			this->reschedule(llabs(scheduledTime));
+			//if (realGcwTefMs < 0) {
+			//	this->reschedule(llabs(realGcwTefMs));
+			//} else{
+			//	this->reschedule(llabs(realGcwTefMs < gcwTefMs ? (realGcwTefMs < bhTefMs ? realGcwTefMs : bhTefMs) : (gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs)));
+			//}
+			
 		} else {
 			ghost->updateInRangeBuildingPermissions();
-			ghost->setCrackdownTefTowards(0, false);
+			ghost->setGroupTefTowards(0, false);
 			player->clearPvpStatusBit(CreatureFlag::TEF);
 		}
 

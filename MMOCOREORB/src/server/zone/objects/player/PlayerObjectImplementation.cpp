@@ -2331,27 +2331,29 @@ Time PlayerObjectImplementation::getLastGcwPvpCombatActionTimestamp() const {
 	return lastGcwPvpCombatActionTimestamp;
 }
 
-Time PlayerObjectImplementation::getLastGcwCrackdownCombatActionTimestamp() const {
-	return lastCrackdownGcwCombatActionTimestamp;
+Time PlayerObjectImplementation::getLastRealGcwTefPvpCombatActionTimestamp() const {
+	return lastRealGcwTefPvpCombatActionTimestamp;
 }
 
-void PlayerObjectImplementation::updateLastCombatActionTimestamp(bool updateGcwCrackdownAction, bool updateGcwAction, bool updateBhAction) {
+Time PlayerObjectImplementation::getLastGroupTefPvpCombatActionTimestamp() const {
+	return lastGroupTefPvpCombatActionTimestamp;
+}
+
+void PlayerObjectImplementation::updateLastPvpCombatActionTimestamp(bool updateGcwAction, bool updateBhAction, bool updateRealGcwAction, bool updateGroupTefAction) {
 	ManagedReference<CreatureObject*> parent = getParent().get().castTo<CreatureObject*>();
 
 	if (parent == nullptr)
 		return;
 
-	bool alreadyHasTef = hasTef();
-
-	if (updateGcwCrackdownAction) {
-		lastCrackdownGcwCombatActionTimestamp.updateToCurrentTime();
-		lastCrackdownGcwCombatActionTimestamp.addMiliTime(FactionManager::TEFTIMER);
-	}
+	bool alreadyHasTef = hasPvpTef();
+	bool alreadyHasRealGcwTef = hasRealGcwTef();
+	bool alreadyHasGroupTef = hasGroupTef();
 
 	if (updateBhAction) {
 		bool alreadyHasBhTef = hasBhTef();
 		lastBhPvpCombatActionTimestamp.updateToCurrentTime();
 		lastBhPvpCombatActionTimestamp.addMiliTime(FactionManager::TEFTIMER);
+		//info("updateBhAction", true);
 
 		if (!alreadyHasBhTef)
 			parent->notifyObservers(ObserverEventType::BHTEFCHANGED);
@@ -2360,26 +2362,42 @@ void PlayerObjectImplementation::updateLastCombatActionTimestamp(bool updateGcwC
 	if (updateGcwAction) {
 		lastGcwPvpCombatActionTimestamp.updateToCurrentTime();
 		lastGcwPvpCombatActionTimestamp.addMiliTime(FactionManager::TEFTIMER);
+		//info("updateGcwAction", true);
+	}
+
+	if (updateRealGcwAction) {
+		lastRealGcwTefPvpCombatActionTimestamp.updateToCurrentTime();
+		lastRealGcwTefPvpCombatActionTimestamp.addMiliTime(FactionManager::TEFTIMER);
+		//info("updateRealGcwAction", true);
+	}
+
+	if (updateGroupTefAction) {
+		lastGroupTefPvpCombatActionTimestamp.updateToCurrentTime();
+		lastGroupTefPvpCombatActionTimestamp.addMiliTime(FactionManager::TEFTIMER);
 	}
 
 	schedulePvpTefRemovalTask();
 
-	if (!alreadyHasTef) {
+	if (!alreadyHasTef || !alreadyHasRealGcwTef || !alreadyHasGroupTef) {
 		updateInRangeBuildingPermissions();
 		parent->setPvpStatusBit(CreatureFlag::TEF);
 	}
 }
 
 void PlayerObjectImplementation::updateLastBhPvpCombatActionTimestamp() {
-	updateLastCombatActionTimestamp(false, false, true);
+	updateLastPvpCombatActionTimestamp(false, true, false, false);
 }
 
 void PlayerObjectImplementation::updateLastGcwPvpCombatActionTimestamp() {
-	updateLastCombatActionTimestamp(false, true, false);
+	updateLastPvpCombatActionTimestamp(true, false, false, false);
 }
 
-bool PlayerObjectImplementation::hasTef() const {
-	return hasCrackdownTef() || hasPvpTef();
+void PlayerObjectImplementation::updateLastRealGcwTefPvpCombatActionTimestamp() {
+	updateLastPvpCombatActionTimestamp(false, false, true, false);
+}
+
+void PlayerObjectImplementation::updateLastGroupTefPvpCombatActionTimestamp() {
+	updateLastPvpCombatActionTimestamp(false, false, false, true);
 }
 
 bool PlayerObjectImplementation::hasPvpTef() const {
@@ -2390,45 +2408,53 @@ bool PlayerObjectImplementation::hasBhTef() const {
 	return !lastBhPvpCombatActionTimestamp.isPast();
 }
 
-void PlayerObjectImplementation::setCrackdownTefTowards(unsigned int factionCrc, bool scheduleTefRemovalTask) {
-	crackdownFactionTefCrc = factionCrc;
+bool PlayerObjectImplementation::hasRealGcwTef() const {
+	return !lastRealGcwTefPvpCombatActionTimestamp.isPast();
+}
+
+void PlayerObjectImplementation::setGroupTefTowards(unsigned int groupID, bool scheduleTefRemovalTask) {
+	groupTefCrc = groupID;
 	if (scheduleTefRemovalTask) {
-		updateLastCombatActionTimestamp(true, false, false);
+		updateLastPvpCombatActionTimestamp(false, false, false, true);
 	}
 }
 
-bool PlayerObjectImplementation::hasCrackdownTefTowards(unsigned int factionCrc) const {
-	return !lastCrackdownGcwCombatActionTimestamp.isPast() && factionCrc != 0 && crackdownFactionTefCrc == factionCrc;
+bool PlayerObjectImplementation::hasGroupTefTowards(unsigned int groupID) const {
+	return !lastGroupTefPvpCombatActionTimestamp.isPast() && groupTefCrc == groupID; //groupID != 0 && 
 }
 
-bool PlayerObjectImplementation::hasCrackdownTef() const {
-	return !lastCrackdownGcwCombatActionTimestamp.isPast() && crackdownFactionTefCrc != 0;
+bool PlayerObjectImplementation::hasGroupTef() const {
+	//saving just in case we have issues with group tef
+	//return !lastGroupTefPvpCombatActionTimestamp.isPast();// && groupTefCrc != 0;
+	return !lastGroupTefPvpCombatActionTimestamp.isPast() && groupTefCrc != 0;
 }
 
-void PlayerObjectImplementation::schedulePvpTefRemovalTask(bool removeCrackdownGcwTefNow, bool removeGcwTefNow, bool removeBhTefNow) {
+void PlayerObjectImplementation::schedulePvpTefRemovalTask(bool removeGcwTefNow, bool removeBhTefNow, bool removeRealGcwTefNow, bool removeGroupTefNow) {
 	ManagedReference<CreatureObject*> parent = getParent().get().castTo<CreatureObject*>();
 
-	if (parent == nullptr) {
+	if (parent == nullptr)
 		return;
-	}
 
 	if (pvpTefTask == nullptr) {
 		pvpTefTask = new PvpTefRemovalTask(parent);
 	}
 
-	if (removeCrackdownGcwTefNow || removeGcwTefNow || removeBhTefNow) {
-		if (removeCrackdownGcwTefNow) {
-			crackdownFactionTefCrc = 0;
-			lastCrackdownGcwCombatActionTimestamp.updateToCurrentTime();
-		}
-
-		if (removeGcwTefNow) {
+	if (removeGcwTefNow || removeBhTefNow || removeRealGcwTefNow || removeGroupTefNow) {
+		if (removeGcwTefNow)
 			lastGcwPvpCombatActionTimestamp.updateToCurrentTime();
-		}
 
 		if (removeBhTefNow) {
 			lastBhPvpCombatActionTimestamp.updateToCurrentTime();
 			parent->notifyObservers(ObserverEventType::BHTEFCHANGED);
+		}
+
+		if (removeRealGcwTefNow) {
+			lastRealGcwTefPvpCombatActionTimestamp.updateToCurrentTime();
+		}
+
+		if (removeGroupTefNow) {
+			groupTefCrc = 0;
+			lastGroupTefPvpCombatActionTimestamp.updateToCurrentTime();
 		}
 
 		if (pvpTefTask->isScheduled()) {
@@ -2437,13 +2463,17 @@ void PlayerObjectImplementation::schedulePvpTefRemovalTask(bool removeCrackdownG
 	}
 
 	if (!pvpTefTask->isScheduled()) {
-		if (hasTef()) {
-			auto gcwCrackdownTefMs = getLastGcwCrackdownCombatActionTimestamp().miliDifference();
+		if (hasPvpTef() || hasRealGcwTef() || hasBhTef() || hasGroupTef()) {
 			auto gcwTefMs = getLastGcwPvpCombatActionTimestamp().miliDifference();
 			auto bhTefMs = getLastBhPvpCombatActionTimestamp().miliDifference();
-			auto scheduleTime = gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs;
-			scheduleTime = gcwCrackdownTefMs < scheduleTime ? gcwCrackdownTefMs : scheduleTime;
-			pvpTefTask->schedule(llabs(scheduleTime));
+			auto realGcwTefMs = getLastRealGcwTefPvpCombatActionTimestamp().miliDifference();
+			auto groupTefMs = getLastGroupTefPvpCombatActionTimestamp().miliDifference();
+			auto scheduledTime = gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs;
+			scheduledTime = realGcwTefMs < scheduledTime ? realGcwTefMs : scheduledTime;
+			scheduledTime = groupTefMs < scheduledTime ? groupTefMs : scheduledTime;
+			pvpTefTask->schedule(llabs(scheduledTime));
+
+			//pvpTefTask->schedule(llabs(realGcwTefMs < gcwTefMs ? (realGcwTefMs < bhTefMs ? realGcwTefMs : bhTefMs) : (gcwTefMs < bhTefMs ? gcwTefMs : bhTefMs)));
 		} else {
 			pvpTefTask->execute();
 		}
@@ -2451,7 +2481,7 @@ void PlayerObjectImplementation::schedulePvpTefRemovalTask(bool removeCrackdownG
 }
 
 void PlayerObjectImplementation::schedulePvpTefRemovalTask(bool removeNow) {
-	schedulePvpTefRemovalTask(removeNow, removeNow, removeNow);
+	schedulePvpTefRemovalTask(removeNow, removeNow, removeNow, removeNow);
 }
 
 Vector3 PlayerObjectImplementation::getTrainerCoordinates() const {
@@ -2901,8 +2931,15 @@ void PlayerObjectImplementation::doFieldFactionChange(int newStatus) {
 
 	if (newStatus == FactionStatus::COVERT) {
 		inputbox->setPromptText("@gcw:gcw_status_change_covert"); // You are changing your GCW Status to 'Combatant'. This transition will take 30 seconds. It will allow you to attack and be attacked by enemy NPC's. Type YES in this box to confirm the change.
-	} else if (newStatus == FactionStatus::OVERT) {
-		inputbox->setPromptText("@gcw:gcw_status_change_overt"); // You are changing your GCW Status to 'Special Forces'. This transition will take 5 minutes. It will allow you to attack and be attacked by hostile players and NPC's.Type YES in this box to confirm the change.
+	// Test for box with no data
+	//PlayerObject* ghost = parent->getPlayerObject();
+	//ManagedReference<PlayerObject*> ghost = parent->getPlayerObject();
+	// TEF Fix
+	} else if (curStatus == FactionStatus::COVERT && (parent->getPvpStatusBitmask() & CreatureFlag::TEF)) { //parent->getPvpStatusBitmask() & CreatureFlag::TEF
+		return;
+	} else if (newStatus == FactionStatus::OVERT && !(parent->getPvpStatusBitmask() & CreatureFlag::TEF)) { //parent->getPvpStatusBitmask() & CreatureFlag::TEF
+		return;
+		//inputbox->setPromptText("@gcw:gcw_status_change_overt"); // You are changing your GCW Status to 'Special Forces'. This transition will take 5 minutes. It will allow you to attack and be attacked by hostile players and NPC's.Type YES in this box to confirm the change.
 	}
 
 	addSuiBox(inputbox);

@@ -159,17 +159,18 @@ public:
 	float hitChanceEquation(float attackerAccuracy, float attackerRoll, float targetDefense, float defenderRoll) const;
 	float doDroidDetonation(CreatureObject* droid, CreatureObject* defender, float damage) const;
 
-	void checkForTefs(CreatureObject* attacker, CreatureObject* defender, bool* shouldGcwCrackdownTef, bool* shouldGcwTef, bool* shouldBhTef) const;
+	void checkForTefs(CreatureObject* attacker, CreatureObject* defender, bool* shouldGcwTef, bool* shouldBhTef, bool* shouldRealGcwTef, bool* shouldGroupTef) const;
 	void getFrsModifiedForceAttackDamage(CreatureObject* attacker, float& minDmg, float& maxDmg, const CreatureAttackData& data) const;
 	int getArmorObjectReduction(ArmorObject* armor, int damageType) const;
+	void addGroupTef(CreatureObject* attacker, CreatureObject* defender) const;
 
 	ArmorObject* getPSGArmor(CreatureObject* defender) const;
 
 	//all the combat math will go here
 protected:
 
-	int doTargetCombatAction(CreatureObject* attacker, WeaponObject* weapon, CreatureObject* defenderObject, const CreatureAttackData& data, bool* shouldGcwCrackdownTef, bool* shouldGcwTef, bool* shouldBhTef) const;
-	int doTargetCombatAction(CreatureObject* attacker, WeaponObject* weapon, TangibleObject* defenderObject, const CreatureAttackData& data, bool* shouldGcwCrackdownTef, bool* shouldGcwTef, bool* shouldBhTef) const;
+	int doTargetCombatAction(CreatureObject* attacker, WeaponObject* weapon, CreatureObject* defenderObject, const CreatureAttackData& data, bool* shouldGcwTef, bool* shouldBhTef, bool* shouldRealGcwTef, bool* shouldGroupTef) const;
+	int doTargetCombatAction(CreatureObject* attacker, WeaponObject* weapon, TangibleObject* defenderObject, const CreatureAttackData& data, bool* shouldGcwTef, bool* shouldBhTef, bool* shouldRealGcwTef, bool* shouldGroupTef) const;
 	void applyDots(CreatureObject* attacker, CreatureObject* defender, const CreatureAttackData& data, int appliedDamage, int unmitDamage, int poolsToDamage) const;
 	void applyWeaponDots(CreatureObject* attacker, CreatureObject* defender, WeaponObject* weapon) const;
 	uint8 getPoolForDot(uint64 dotType, int poolsToDamage) const;
