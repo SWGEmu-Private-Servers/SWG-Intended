@@ -47,7 +47,7 @@ ForceLightningCone2Command = {
 	minDamage = 600,
 	maxDamage = 1200,
 	speed = 4.0,
-	forceCost = 250,
+	forceCost = 125,
 	accuracySkillMod = "forcelightning_accuracy",
 	coneAngle = 60,
 	coneAction = true,
@@ -61,7 +61,7 @@ ForceLightningCone2Command = {
 			{ "jedi_state_defense" },
 			30,
 			0,
-			10
+			30
 		)
 	},
 
@@ -69,6 +69,9 @@ ForceLightningCone2Command = {
 	animType = GENERATE_INTENSITY,
 
 	combatSpam = "forcelightningcone2",
+
+	-- NONE, LIGHT, MEDIUM, HEAVY
+	armorPiercing = HEAVY,
 
 	poolsToDamage = RANDOM_ATTRIBUTE,
 

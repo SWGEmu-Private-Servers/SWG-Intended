@@ -47,7 +47,7 @@ ForceThrow1Command = {
 	minDamage = 150,
 	maxDamage = 300,
 	speed = 4.0,
-	forceCost = 28,
+	forceCost = 14,
 	visMod = 25,
 	accuracySkillMod = "forcethrow_accuracy",
 
@@ -59,7 +59,7 @@ ForceThrow1Command = {
 			{ "jedi_state_defense" },
 			65,
 			0,
-			10
+			60
 		)
 	},
 

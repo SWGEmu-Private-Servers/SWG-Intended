@@ -460,4 +460,5 @@ function CorelliaCoronetScreenPlay:spawnMobiles()
 
 	-- Chassis dealer.
 	spawnMobile(self.planet, "chassis_dealer", 0, 0.1, 0.6, 72.9, -4, 1855672)
+	
 end

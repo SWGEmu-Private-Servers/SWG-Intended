@@ -46,8 +46,8 @@ object_tangible_medicine_crafted_medpack_enhance_action_d = object_tangible_medi
 	templateType = ENHANCEPACK,
 	useCount = 21,
 	medicineUse = 25,
-	effectiveness = 600,
-	duration = 1800,
+	effectiveness = 948,
+	duration = 10800,
 	attribute = 3,
 
 	numberExperimentalProperties = {1, 1, 2, 2, 2, 2, 1},

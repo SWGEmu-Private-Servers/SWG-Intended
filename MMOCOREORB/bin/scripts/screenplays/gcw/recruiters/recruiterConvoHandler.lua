@@ -32,6 +32,7 @@ function RecruiterConvoHandler:runScreenHandlers(pConvTemplate, pPlayer, pNpc, s
 
 	elseif (screenID == "accept_join") then
 		CreatureObject(pPlayer):setFaction(recruiterScreenplay:getRecruiterFactionHashCode(pNpc))
+		-- Set To covert on join_military
 		CreatureObject(pPlayer):setFactionStatus(1)
 
 	elseif (screenID == "accepted_go_overt") then
@@ -60,6 +61,10 @@ function RecruiterConvoHandler:runScreenHandlers(pConvTemplate, pPlayer, pNpc, s
 	elseif (screenID == "accepted_resign") then
 		if (CreatureObject(pPlayer):hasSkill("force_rank_light_novice") or CreatureObject(pPlayer):hasSkill("force_rank_dark_novice")) then
 			CreatureObject(pPlayer):sendSystemMessage("@faction_recruiter:jedi_cant_resign")
+			return
+		end
+		if (PlayerObject(pGhost):hasRealGcwTef()) then
+			CreatureObject(pPlayer):sendSystemMessage("Cannot Resign while TEFed.")
 			return
 		end
 
